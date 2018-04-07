@@ -1,0 +1,3 @@
+[submodule "build/lambdasmushpy"]
+	path = build/lambdasmushpy
+	url = git@github.com:magnetikonline/lambda-smush-py.git

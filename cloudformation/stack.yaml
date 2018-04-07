@@ -1,0 +1,160 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "CloudFront edge security group update Lambda task"
+
+Parameters:
+  lambdaFunctionName:
+    Type: "String"
+    AllowedPattern: "^[a-zA-Z0-9]+[a-zA-Z0-9-]+[a-zA-Z0-9]+$"
+    Default: "cloudfront-edge-security-group-update"
+
+  ingressPortList:
+    Type: "String"
+    AllowedValues:
+      - "443"
+      - "80"
+      - "80,443"
+    Default: "443"
+
+  securityGroupIdList:
+    Type: "List<AWS::EC2::SecurityGroup::Id>"
+
+  # note: https://docs.aws.amazon.com/AmazonCloudWatch/latest/events/ScheduledEvents.html
+  executeSchedule:
+    Type: "String"
+    AllowedPattern: "^(cron|rate)\\([^\\)]+\\)$"
+    Default: "cron(0 0,6 * * ? *)" # run twice daily
+
+  slackWebhookURI:
+    Type: "String"
+    AllowedPattern: "^(|https://hooks.slack.com/services/[A-Z0-9]{9}/[A-Z0-9]{9}/[A-Za-z0-9/]{24})$"
+    Default: ""
+    NoEcho: True
+
+  slackChannel:
+    Type: "String"
+    AllowedPattern: "^(|[a-z0-9_-]+)$"
+    Default: ""
+
+  slackEmoji:
+    Type: "String"
+    AllowedPattern: "^(|[a-z0-9_-]+)$"
+    Default: ""
+
+  slackUsername:
+    Type: "String"
+    AllowedPattern: "^(|[a-zA-Z0-9- ]+)$"
+    Default: ""
+
+Resources:
+  lambdaFunction:
+    Type: "AWS::Lambda::Function"
+    Properties:
+      Code:
+        ZipFile: |
+          import base64,imp,tempfile,zlib
+          _='''\
+          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
+          IQ==\
+          '''
+          l=tempfile.mkdtemp()+'/l.py'
+          h=open(l,'w')
+          h.write(zlib.decompress(base64.b64decode(_)))
+          h.close()
+          m=imp.load_source('l',l)
+          def handler(e,c):
+          	return m.handler(e,c)
+      Description: "Update nominated security group ingress rules to that of CloudFront edge CIDR ranges"
+      Environment:
+        Variables:
+          INGRESS_PORT_LIST: !Ref "ingressPortList"
+          SECURITY_GROUP_ID_LIST: !Join [',',!Ref "securityGroupIdList"]
+          SLACK_WEBHOOK_URI: !Ref "slackWebhookURI"
+          SLACK_CHANNEL: !Ref "slackChannel"
+          SLACK_EMOJI: !Ref "slackEmoji"
+          SLACK_USERNAME: !Ref "slackUsername"
+      FunctionName: !Ref "lambdaFunctionName"
+      Handler: "index.handler"
+      MemorySize: 128
+      ReservedConcurrentExecutions: 1
+      Role: !GetAtt "lambdaIAMRole.Arn"
+      Runtime: "python2.7"
+      Timeout: 10
+
+  lambdaIAMRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Action:
+              - "sts:AssumeRole"
+            Effect: "Allow"
+            Principal:
+              Service:
+                - "lambda.amazonaws.com"
+      Policies:
+        - PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Action:
+                  - "logs:CreateLogGroup"
+                  - "logs:CreateLogStream"
+                  - "logs:PutLogEvents"
+                Effect: "Allow"
+                Resource:
+                  - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/${lambdaFunctionName}:*"
+              - Action:
+                  - "ec2:DescribeSecurityGroups"
+                Effect: "Allow"
+                Resource:
+                  - "*"
+              - Action:
+                  - "ec2:AuthorizeSecurityGroupIngress"
+                  - "ec2:RevokeSecurityGroupIngress"
+                Effect: "Allow"
+                Resource:
+                  - !Sub "arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:security-group/*"
+          PolicyName: "lambda"
+
+  lambdaPermissionInvoke:
+    Type: "AWS::Lambda::Permission"
+    Properties:
+      Action: "lambda:InvokeFunction"
+      FunctionName: !GetAtt "lambdaFunction.Arn"
+      Principal: "events.amazonaws.com"
+      SourceArn: !GetAtt "lambdaScheduledTask.Arn"
+
+  lambdaLogGroup:
+    Type: "AWS::Logs::LogGroup"
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${lambdaFunctionName}"
+      RetentionInDays: 90
+
+  lambdaScheduledTask:
+    Type: "AWS::Events::Rule"
+    Properties:
+      Description: "Push CloudFront edge CIDR ranges to nominated security groups"
+      ScheduleExpression: !Ref "executeSchedule"
+      State: "ENABLED"
+      Targets:
+        - Arn: !GetAtt "lambdaFunction.Arn"
+          Id: !Sub "${lambdaFunctionName}-invoke"
+
+Outputs:
+  lambdaArn:
+    Value: !GetAtt "lambdaFunction.Arn"
