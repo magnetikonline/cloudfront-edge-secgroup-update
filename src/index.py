@@ -23,6 +23,7 @@ def handler(event,context):
 	SLACK_EMOJI = get_env_var('SLACK_EMOJI')
 	SLACK_USERNAME = get_env_var('SLACK_USERNAME')
 
+	# create EC2 boto client
 	ec2_client = boto3.client(
 		'ec2',
 		region_name = get_env_var('AWS_REGION')
