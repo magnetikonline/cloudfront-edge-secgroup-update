@@ -13,20 +13,10 @@ INGRESS_PROTO = 'tcp'
 
 
 def handler(event,context):
-	# fetch environment constants
-	# note: no bounds checks here, values assumed fit for purpose
-	INGRESS_PORT_LIST = map(int,get_env_var('INGRESS_PORT_LIST',',')) # as integers
-	SECURITY_GROUP_ID_LIST = get_env_var('SECURITY_GROUP_ID_LIST',',')
-
-	SLACK_WEBHOOK_URI = get_env_var('SLACK_WEBHOOK_URI')
-	SLACK_CHANNEL = get_env_var('SLACK_CHANNEL')
-	SLACK_EMOJI = get_env_var('SLACK_EMOJI')
-	SLACK_USERNAME = get_env_var('SLACK_USERNAME')
-
 	# create EC2 boto client
 	ec2_client = boto3.client(
 		'ec2',
-		region_name = get_env_var('AWS_REGION')
+		region_name = AWS_REGION
 	)
 
 	# load CloudFront IP range set from public AWS source and transform into CIDR/port tuples
@@ -266,3 +256,16 @@ def report_slack_notification(
 	)
 
 	urllib2.urlopen(request)
+
+
+# fetch environment constants
+# note: no bounds checks here, values assumed fit for purpose
+AWS_REGION = get_env_var('AWS_REGION')
+
+INGRESS_PORT_LIST = map(int,get_env_var('INGRESS_PORT_LIST',',')) # as integers
+SECURITY_GROUP_ID_LIST = get_env_var('SECURITY_GROUP_ID_LIST',',')
+
+SLACK_WEBHOOK_URI = get_env_var('SLACK_WEBHOOK_URI')
+SLACK_CHANNEL = get_env_var('SLACK_CHANNEL')
+SLACK_EMOJI = get_env_var('SLACK_EMOJI')
+SLACK_USERNAME = get_env_var('SLACK_USERNAME')
