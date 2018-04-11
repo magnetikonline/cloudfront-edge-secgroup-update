@@ -21,7 +21,6 @@ def handler(event,context):
 
 	# load CloudFront IP range set from public AWS source and transform into CIDR/port tuples
 	cloudfront_cidr_port_set = get_cidr_set_merge_port(
-		INGRESS_PORT_LIST,
 		load_cloudfront_cidr_set()
 	)
 
@@ -42,10 +41,7 @@ def handler(event,context):
 	# iterate over security groups - remove orphan IP ranges and build global range set/rule counts
 	for security_group_id in SECURITY_GROUP_ID_LIST:
 		# query security group for ingress CIDR/port set
-		cidr_port_set = get_security_group_cidr_port_set(
-			INGRESS_PORT_LIST,
-			ec2_client,security_group_id
-		)
+		cidr_port_set = get_security_group_cidr_port_set(ec2_client,security_group_id)
 
 		# remove any CIDRs in security group not CloudFront related
 		orphan_cidr_port_set = cidr_port_set.difference(cloudfront_cidr_port_set)
@@ -87,8 +83,6 @@ def handler(event,context):
 	# send update report to Slack
 	if (update_applied and SLACK_WEBHOOK_URI):
 		report_slack_notification(
-			SECURITY_GROUP_ID_LIST,
-			SLACK_WEBHOOK_URI,SLACK_CHANNEL,SLACK_EMOJI,SLACK_USERNAME,
 			security_group_remove_cidr_port_set,
 			security_group_add_cidr_port_set
 		)
@@ -132,17 +126,17 @@ def load_cloudfront_cidr_set():
 
 	return reduce(r,data.get('prefixes',[]),set())
 
-def get_cidr_set_merge_port(port_list,cidr_set):
+def get_cidr_set_merge_port(cidr_set):
 	def r(accum,item):
 		# add CIDR/port combo for each ingress port required
-		for port in port_list:
+		for port in INGRESS_PORT_LIST:
 			accum.add((item,port))
 
 		return accum
 
 	return reduce(r,cidr_set,set())
 
-def get_security_group_cidr_port_set(port_list,ec2_client,group_id):
+def get_security_group_cidr_port_set(ec2_client,group_id):
 	def r(accum,item):
 		# only care about rules with correct proto, single port, and port in our ingress list
 		from_port = item['FromPort']
@@ -150,7 +144,7 @@ def get_security_group_cidr_port_set(port_list,ec2_client,group_id):
 		if (
 			(item['IpProtocol'] == INGRESS_PROTO) and
 			(from_port == item['ToPort']) and
-			(from_port in port_list)
+			(from_port in INGRESS_PORT_LIST)
 		):
 			accum.update({
 				(iprange['CidrIp'],from_port)
@@ -196,12 +190,7 @@ def get_ippermissions_from_cidr_port_set(cidr_port_set):
 		for cidr_item,port_item in cidr_port_set
 	]
 
-def report_slack_notification(
-	security_group_id_list,
-	webhook_uri,channel,emoji,username,
-	remove_cidr_port_set,add_cidr_port_set
-):
-
+def report_slack_notification(remove_cidr_port_set,add_cidr_port_set):
 	def build_message(action_type,security_group_id,cidr_port_set):
 		if (not cidr_port_set):
 			return ''
@@ -219,7 +208,7 @@ def report_slack_notification(
 	# create security group rule modification message sections
 	removed_message = ''
 	added_message = ''
-	for security_group_id in security_group_id_list:
+	for security_group_id in SECURITY_GROUP_ID_LIST:
 		removed_message += build_message(
 			'Removed from',
 			security_group_id,remove_cidr_port_set[security_group_id]
@@ -239,18 +228,18 @@ def report_slack_notification(
 		)
 	}
 
-	if (channel):
-		payload['channel'] = '#{0}'.format(channel)
+	if (SLACK_CHANNEL):
+		payload['channel'] = '#{0}'.format(SLACK_CHANNEL)
 
-	if (emoji):
-		payload['icon_emoji'] = ':{0}:'.format(emoji)
+	if (SLACK_EMOJI):
+		payload['icon_emoji'] = ':{0}:'.format(SLACK_EMOJI)
 
-	if (username):
-		payload['username'] = username
+	if (SLACK_USERNAME):
+		payload['username'] = SLACK_USERNAME
 
 	# send message
 	request = urllib2.Request(
-		webhook_uri,
+		SLACK_WEBHOOK_URI,
 		headers = {'Content-Type': 'application/json'},
 		data = json.dumps(payload)
 	)
