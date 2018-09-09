@@ -15,12 +15,12 @@ Lambda optionally supports posting of updates to [Slack](https://slack.com/) via
 The following steps will get you going with a set of security groups and an automated update process.
 
 ### Create security groups
-First task, create a collection of security groups:
-- At time of writing (April 2018), AWS [list a total](https://ip-ranges.amazonaws.com/ip-ranges.json) of 48 IPv4 CIDR ranges, so at least two security groups will be essential to allow for future CloudFront growth.
-- Using three security groups is recommended, especially if you wish to support origin ingress on both `HTTPS` (443) and `HTTP` (80) ports.
-- Avoiding support for both HTTPS/HTTP can be achieved by defining CloudFront origins with [`https-only`](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distribution-customoriginconfig.html#cfn-cloudfront-distribution-customoriginconfig-originprotocolpolicy), thus only `HTTPS` ingress is required for less security group rules.
+Start by creating a collection of security groups:
+- At time of writing (September 2018), AWS [define a total of 55 IPv4 ranges](https://ip-ranges.amazonaws.com/ip-ranges.json), so at least two security groups are required to provide a little future headroom - a single AWS security group can [define 60 ingress rules](https://docs.aws.amazon.com/vpc/latest/userguide/amazon-vpc-limits.html#vpc-limits-security-groups).
+- Using three security groups is recommended, especially if you're wishing to support origin ingress on both `HTTPS` (443) and `HTTP` (80).
+- Even better, support only `HTTPS` at the origin by defining CloudFront distributions to communicate over [`https-only`](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distribution-customoriginconfig.html#cfn-cloudfront-distribution-customoriginconfig-originprotocolpolicy), thus only `HTTPS` ingress is required - even for `HTTP` edge traffic.
 
-Once created, note down security group IDs.
+Once created, note security group IDs.
 
 ### Deploy CloudFormation
 The complete application and infrastructure is contained within the CloudFormation stack [`cloudformation/stack.yaml`](cloudformation/stack.yaml), which accepts the following configuration parameters:
@@ -42,9 +42,9 @@ With the CloudFormation template successfully deployed, testing can be done by m
 The Lambda function will then continue to add new CIDR ranges as they become available via the AWS IP range feed plus additionally remove orphaned/invalid CIDR ranges present in security groups.
 
 ## Building
-The CloudFormation template can be rebuilt via the the [`build/run.sh`](build/run.sh) script.
+The CloudFormation template can be built from source via [`build/run.sh`](build/run.sh).
 
-Build process uses [Lambda smush py](https://github.com/magnetikonline/lambda-smush-py), taking the Lambda function source [`src/index.py`](src/index.py) and generating a compressed version embedded into [`build/template.yaml`](build/template.yaml). This process allows for a Lambda function which can be created entirely via the CloudFormation itself - fitting within the allowed `4KB` code size limit (source function is currently around `7.5KB`).
+Build process uses [Lambda smush py](https://github.com/magnetikonline/lambda-smush-py), taking Lambda function [`src/index.py`](src/index.py) and generating a compressed version then embedded into [`build/template.yaml`](build/template.yaml). This allows for a Lambda function which can be created via the CloudFormation template itself - fitting within the AWS `4KB` code size limit (source function is currently around `7.5KB`).
 
 ## Future enhancements
 Lambda currently manages IPv4 edge CIDR ranges, additions required to also manage advertised IPv6 range(s). Supporting IPv6 isn't typically an issue though, if origin endpoint(s) (load balancers, etc.) only present IPv4 addresses.
